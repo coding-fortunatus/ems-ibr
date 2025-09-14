@@ -645,6 +645,11 @@ waitress-serve --port=8000 core.wsgi:application
 - **Solution**: Admin must first upload the institutional course catalog
 - **Workflow**: Courses → Classes → Halls → Class Courses → Timetable Generation
 
+**Issue**: "Student count mismatch. Class size is X but you are uploading Y students. Please ensure the number of students matches the class size."
+- **Cause**: The number of students in the CSV file doesn't match the defined class size
+- **Solution**: Either update the class size to match the actual number of students, or adjust the CSV file to contain the correct number of students
+- **Prevention**: Verify class size before uploading student data
+
 **Issue**: `ImproperlyConfigured: STATIC_ROOT setting must not be empty`
 - **Cause**: Missing STATIC_ROOT configuration
 - **Solution**: Ensure STATIC_ROOT is defined in settings.py

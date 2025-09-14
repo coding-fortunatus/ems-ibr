@@ -1111,7 +1111,20 @@ def upload_class_courses(request, id):
 def upload_class_students(request, id):
     cls = get_object_or_404(Class, id=id)
     data = request.FILES.get("file")
-    students = pd.read_csv(data).to_dict()
+    students_df = pd.read_csv(data)
+    
+    # Validation: Check if number of students matches class size
+    total_students_in_file = len(students_df)
+    if total_students_in_file != cls.size:
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={
+                "message": f"Student count mismatch. Class size is {cls.size} but you are uploading {total_students_in_file} students. Please ensure the number of students matches the class size."
+            },
+        )
+    
+    students = students_df.to_dict()
     for key in students["MATRIC NUMBER"]:
         student, created = Student.objects.get_or_create(
             matric_no=students["MATRIC NUMBER"][key],
@@ -1127,9 +1140,17 @@ def upload_class_students(request, id):
         if created:
             student.save()
     if created:
-        return HttpResponse('<div class="alert alert-success">Courses uploaded successfully!</div>')
+        return render(
+            request,
+            template_name="dashboard/partials/alert-success.html",
+            context={"message": "Students uploaded successfully!"},
+        )
     else:
-        return HttpResponse('<div class="alert alert-danger">Upload error, please try again.</div>')
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": "Upload error, please try again."},
+        )
 
 
 @require_POST
