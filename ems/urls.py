@@ -64,7 +64,11 @@ urlpatterns = [
     path('generate_broadsheet/', view=views.generate_broadsheet,
          name="generate_broadsheet"),
     path('hall-allocation/', view=views.hall_allocation, name="hall_allocation"),
-    path('manual-seat-assignment/', view=views.manual_seat_assignment, name="manual_seat_assignment"),
+    path('manual-seat-assignment/', view=views.manual_seat_assignment,
+         name="manual_seat_assignment"),
     path('bulk-upload', view=views.bulk_upload, name='bulk-upload'),
-    path('reset', view=views.reset_system, name="reset-system")
+    path('reset', view=views.reset_system, name="reset-system"),
+    path('settings', view=views.setting, name="settings"),
+    path("settings/update/", views.update_settings, name="update-settings"),
+
 ]

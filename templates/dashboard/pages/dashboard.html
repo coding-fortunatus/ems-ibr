@@ -1,128 +1,60 @@
 {% load static %}
 
 <div class="page-header">
-  <h3 class="page-title">
-    <span class="page-title-icon bg-gradient-primary text-white me-2"
-      ><i class="mdi mdi-home"></i
-    ></span>
-    Dashboard
-  </h3>
-  <nav aria-label="breadcrumb">
-    <ul class="breadcrumb">
-      <li class="breadcrumb-item" aria-current="page">
-        <button
-          data-bs-toggle="modal"
-          data-bs-target="#reset-system"
-          class="btn bg-danger text-white d-flex align-items-center gap-3"
-          type="button"
-        >
-          Reset System
-        </button>
-
-        <!-- Modal -->
-        <div
-          class="modal slide"
-          id="reset-system"
-          tabindex="-1"
-          role="dialog"
-          aria-labelledby="exampleModalCenterTitle"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalCenterTitle">
-                  Are you sure
-                </h5>
-                <button
-                  type="button"
-                  class="btn-close"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                ></button>
-              </div>
-              <div>
-                <div class="modal-body">
-                  <p>
-                    This action is not reversible all timetable, seat
-                    arrangements, class, courses, distribution data will be
-                    deleted.
-                  </p>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                >
-                  Cancel
-                </button>
-                <a
-                  href="{% url 'reset-system' %}"
-                  class="btn btn-danger d-flex gap-3 align-items-center"
-                >
-                  Reset
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </li>
-    </ul>
-  </nav>
+	<h3 class="page-title">
+		<span class="page-title-icon bg-gradient-primary text-white me-2"
+			><i class="mdi mdi-home"></i
+		></span>
+		Dashboard
+	</h3>
 </div>
 <div class="row">
-  <div class="col-md-3 stretch-card grid-margin">
-    <div class="card bg-gradient-danger card-img-holder text-white">
-      <div class="card-body">
-        <img
-          src="{% static 'assets/images/dashboard/circle.svg' %}"
-          class="card-img-absolute"
-          alt="circle-image"
-        />
-        <h4 class="font-weight-normal mb-3">Total Departments</h4>
-        <h2 class="mb-5">{{ departments_count }}</h2>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3 stretch-card grid-margin">
-    <div class="card bg-gradient-info card-img-holder text-white">
-      <div class="card-body">
-        <img
-          src="{% static 'assets/images/dashboard/circle.svg' %} "
-          class="card-img-absolute"
-          alt="circle-image"
-        />
-        <h4 class="font-weight-normal mb-3">Total Halls</h4>
-        <h2 class="mb-5">{{ halls_count }}</h2>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3 stretch-card grid-margin">
-    <div class="card bg-gradient-success card-img-holder text-white">
-      <div class="card-body">
-        <img
-          src="{% static 'assets/images/dashboard/circle.svg' %} "
-          class="card-img-absolute"
-          alt="circle-image"
-        />
-        <h4 class="font-weight-normal mb-3">Total Students</h4>
-        <h2 class="mb-5">{{ students|default_if_none:"0" }}</h2>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3 stretch-card grid-margin">
-    <div class="card bg-gradient-warning card-img-holder text-white">
-      <div class="card-body">
-        <img
-          src="{% static 'assets/images/dashboard/circle.svg' %} "
-          class="card-img-absolute"
-          alt="circle-image"
-        />
-        <h4 class="font-weight-normal mb-3">Total Courses</h4>
-        <h2 class="mb-5">{{ courses_count }}</h2>
-      </div>
-    </div>
-  </div>
+	<div class="col-md-3 stretch-card grid-margin">
+		<div class="card bg-gradient-danger card-img-holder text-white">
+			<div class="card-body">
+				<img
+					src="{% static 'assets/images/dashboard/circle.svg' %}"
+					class="card-img-absolute"
+					alt="circle-image" />
+				<h4 class="font-weight-normal mb-3">Total Departments</h4>
+				<h2 class="mb-5">{{ departments_count }}</h2>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-3 stretch-card grid-margin">
+		<div class="card bg-gradient-info card-img-holder text-white">
+			<div class="card-body">
+				<img
+					src="{% static 'assets/images/dashboard/circle.svg' %} "
+					class="card-img-absolute"
+					alt="circle-image" />
+				<h4 class="font-weight-normal mb-3">Total Halls</h4>
+				<h2 class="mb-5">{{ halls_count }}</h2>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-3 stretch-card grid-margin">
+		<div class="card bg-gradient-success card-img-holder text-white">
+			<div class="card-body">
+				<img
+					src="{% static 'assets/images/dashboard/circle.svg' %} "
+					class="card-img-absolute"
+					alt="circle-image" />
+				<h4 class="font-weight-normal mb-3">Total Students</h4>
+				<h2 class="mb-5">{{ students|default_if_none:"0" }}</h2>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-3 stretch-card grid-margin">
+		<div class="card bg-gradient-warning card-img-holder text-white">
+			<div class="card-body">
+				<img
+					src="{% static 'assets/images/dashboard/circle.svg' %} "
+					class="card-img-absolute"
+					alt="circle-image" />
+				<h4 class="font-weight-normal mb-3">Total Courses</h4>
+				<h2 class="mb-5">{{ courses_count }}</h2>
+			</div>
+		</div>
+	</div>
 </div>

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import User, Department, Course, Class, TimeTable, Hall, Distribution, DistributionItem, SeatArrangement, Student
+from .models import User, Department, Course, Class, TimeTable, Hall, Distribution, DistributionItem, SeatArrangement, Student, SystemSettings
+
 
 # Register your models here.
 
@@ -14,3 +15,4 @@ admin.site.register(Distribution)
 admin.site.register(DistributionItem)
 admin.site.register(SeatArrangement)
 admin.site.register(Student)
+admin.site.register(SystemSettings)

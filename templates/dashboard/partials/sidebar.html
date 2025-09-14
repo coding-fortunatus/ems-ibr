@@ -51,7 +51,7 @@
         <a style="cursor: pointer;" class="nav-link" hx-get="{% url 'courses' %}" hx-indicator="#htmx-indicator-full" hx-target="#main-content" hx-push-url="true">
           <span class="menu-title">Courses</span>
 
-          <i class="mdi mdi-account-key menu-icon"></i>
+          <i class="mdi mdi-file menu-icon"></i>
         </a>
       </li>
       <li class="nav-item {% active_link 'students' 'active' %}">
@@ -59,6 +59,13 @@
           <span class="menu-title">Students</span>
 
           <i class="mdi mdi-account-key menu-icon"></i>
+        </a>
+      </li>
+      <li class="nav-item {% active_link 'settings' 'active' %}">
+        <a style="cursor: pointer;" class="nav-link" hx-get="{% url 'settings' %}" hx-indicator="#htmx-indicator-full" hx-target="#main-content" hx-push-url="true">
+          <span class="menu-title">Settings</span>
+
+          <i class="mdi mdi-settings menu-icon"></i>
         </a>
       </li>
     {% endif %}

@@ -1,0 +1,110 @@
+{% if messages %}
+  <div class="messages-container mb-3">
+    {% for message in messages %}
+      {% if message.tags == 'success' %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'error' %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'warning' %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'info' %}
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% else %}
+        <div class="alert alert-primary alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="page-header">
+    <h3 class="page-title">
+        <span class="page-title-icon bg-gradient-primary text-white me-2">
+            <i class="mdi mdi-home"></i>
+        </span>
+        System Settings
+    </h3>
+
+    <nav aria-label="breadcrumb">
+        <ul class="breadcrumb">
+            <li class="breadcrumb-item" aria-current="page">
+                <button data-bs-toggle="modal" data-bs-target="#reset-system" 
+                        class="btn bg-danger text-white d-flex align-items-center gap-3" type="button">
+                    Reset System
+                </button>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- Settings Form -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">Update Session & Semester</h5>
+        <form method="POST" action="{% url 'update-settings' %}">
+            {% csrf_token %}
+            <div class="row">
+                <!-- Session -->
+                <div class="col-md-6 mb-3">
+                    <label for="session" class="form-label">Session</label>
+                    <input type="text" id="session" name="session" 
+                           class="form-control" placeholder="e.g. 2024/2025"
+                           value="{{ settings.session|default:'' }}" required>
+                </div>
+
+                <!-- Semester -->
+                <div class="col-md-6 mb-3">
+                    <label for="semester" class="form-label">Semester</label>
+                    <select id="semester" name="semester" class="form-select",>
+                        <option value="">-- Select Semester --</option>
+                        <option value="1st Semester" {% if settings.semester == "1st Semester" %}selected{% endif %}>1st Semester</option>
+                        <option value="2nd Semester" {% if settings.semester == "2nd Semester" %}selected{% endif %}>2nd Semester</option>
+                        <option value="3rd Semester" {% if settings.semester == "3rd Semester" %}selected{% endif %}>3rd Semester</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-gradient-primary mt-3">
+                Save Settings
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Reset System Modal -->
+<div class="modal slide" id="reset-system" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalCenterTitle">Are you sure?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div>
+                <div class="modal-body">
+                    <p>
+                        This action is not reversible. All timetable, seat arrangements,
+                        classes, courses, and distribution data will be deleted.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{% url 'reset-system' %}" class="btn btn-danger d-flex gap-3 align-items-center">Reset</a>
+            </div>
+        </div>
+    </div>
+</div>

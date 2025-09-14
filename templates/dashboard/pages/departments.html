@@ -64,7 +64,6 @@
     <thead>
       <tr class="p-3">
         <th>#</th>
-        <th>Department ID</th>
         <th>Department Name</th>
         <th>Department Code</th>
       </tr>
@@ -73,7 +72,6 @@
       {% for department in departments %}
         <tr hx-get="{% url 'get_department' department.slug %}" hx-indicator="#htmx-indicator-full" hx-target="#main-content" hx-push-url="true" style="cursor: pointer">
           <td>{{ forloop.counter }}</td>
-          <td>{{ department.id }}</td>
           <td>{{ department.name }}</td>
           <td>{{ department.slug }}</td>
         </tr>

@@ -15,6 +15,16 @@ class Department(models.Model):
         return str(self.name)
 
 
+class SystemSettings(models.Model):
+    session = models.CharField(
+        max_length=200, default="2024/2025", unique=True)
+    semester = models.CharField(max_length=100, default="1st Semester")
+    has_timetable = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(f"{self.session} ' - ' {self.semester}")
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
