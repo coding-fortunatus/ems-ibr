@@ -808,6 +808,40 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
             context={"message": "Please select a start date and end date"},
         )
 
+    # Validation 1: Check if any courses exist in the system
+    if not Course.objects.exists():
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": "Cannot generate timetable. No courses found in the system. Please upload courses first."},
+        )
+
+    # Validation 2: Check if any classes exist in the system
+    if not Class.objects.exists():
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": "Cannot generate timetable. No classes found in the system. Please upload classes first."},
+        )
+
+    # Validation 3: Check if any halls exist in the system
+    if not Hall.objects.exists():
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": "Cannot generate timetable. No halls found in the system. Please upload halls first."},
+        )
+
+    # Validation 4: Check if all classes have at least one course assigned
+    classes_without_courses = Class.objects.filter(courses__isnull=True)
+    if classes_without_courses.exists():
+        class_names = list(classes_without_courses.values_list('name', flat=True))
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": f"Cannot generate timetable. The following classes have no courses assigned: {', '.join(class_names)}. Please upload courses for these classes first."},
+        )
+
     startDate = datetime.strptime(startDate, "%Y-%m-%d").date()
     endDate = datetime.strptime(endDate, "%Y-%m-%d").date()
 
@@ -825,9 +859,25 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
             dates.append(currentDate)
         currentDate += timedelta(days=1)
 
-    halls = get_halls()
-    courses = get_courses()
-    AM_courses, PM_courses = split_course(courses)
+    # Validation 5: Check if selected date range provides enough days for timetable generation
+    # Find the class with the highest number of courses
+    # This determines the minimum days needed since each course requires one exam slot
+    max_courses_per_class = 0
+    for cls in Class.objects.prefetch_related('courses'):
+        course_count = cls.courses.count()
+        if course_count > max_courses_per_class:
+            max_courses_per_class = course_count
+    
+    min_days_needed = max_courses_per_class
+    available_days = len(dates)
+    
+    if available_days < min_days_needed:
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": f"Cannot generate timetable. Selected date range provides {available_days} days but minimum {min_days_needed} days are required (based on class with most courses). Please select a longer date range."},
+        )
+
     generate(dates, AM_courses, PM_courses, halls)
 
     return render(
@@ -1013,6 +1063,15 @@ def upload_departments(request):
 @admin_required
 def upload_class_courses(request, id):
     cls = get_object_or_404(Class, id=id)
+    
+    # Validation 2: Check if any courses exist in the system
+    if not Course.objects.exists():
+        return render(
+            request,
+            template_name="dashboard/partials/alert-error.html",
+            context={"message": "No courses found in the system. Admin must upload the institutional course catalog before class courses can be uploaded."},
+        )
+    
     # Get uploaded file
     data = request.FILES.get("file")
     df = pd.read_csv(data)

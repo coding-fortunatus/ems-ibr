@@ -263,10 +263,16 @@ The system supports bulk data upload via CSV/Excel files:
 
 1. **Departments**: Upload department information
 2. **Classes**: Upload class information for specific departments
-3. **Courses**: Upload course catalog
+3. **Courses**: Upload course catalog (Admin only - must be done first)
 4. **Students**: Upload student records for specific classes
 5. **Halls**: Upload examination hall information
-6. **Class-Course Associations**: Link courses to classes
+6. **Class-Course Associations**: Link courses to classes (requires courses to be uploaded first)
+
+#### Required Upload Sequence
+**Important**: Follow this sequence to avoid validation errors:
+1. **Admin uploads institutional courses** (via Dashboard > Courses)
+2. **Exam officers upload class courses** (via Dashboard > Classes > Upload Courses)
+3. **Generate timetable** (all classes must have courses assigned)
 
 #### Upload Process
 1. Navigate to the relevant section (e.g., Departments)
@@ -602,6 +608,42 @@ python manage.py runserver
 pip install waitress
 waitress-serve --port=8000 core.wsgi:application
 ```
+
+#### 2. User Permission Issues
+
+**Issue**: `AttributeError: 'NoneType' object has no attribute 'name'`
+- **Cause**: User attempting to export timetable without an assigned department
+- **Solution**: Assign a department to the user or grant staff/admin privileges
+- **Note**: System now handles this gracefully by allowing staff users to export all timetables
+
+#### 3. Course Assignment Issues
+
+**Issue**: "Cannot generate timetable. No courses found in the system. Please upload courses first."
+- **Cause**: Attempting to generate timetable when no courses exist in the system
+- **Solution**: Upload institutional courses first through the courses management interface
+
+**Issue**: "Cannot generate timetable. No classes found in the system. Please upload classes first."
+- **Cause**: Attempting to generate timetable when no classes exist in the system
+- **Solution**: Upload classes first through the class management interface
+
+**Issue**: "Cannot generate timetable. No halls found in the system. Please upload halls first."
+- **Cause**: Attempting to generate timetable when no examination halls exist in the system
+- **Solution**: Upload halls first through the halls management interface
+
+**Issue**: "Cannot generate timetable. The following classes have no courses assigned"
+- **Cause**: Attempting to generate timetable when some classes have no courses
+- **Solution**: Upload courses for all classes before generating timetable
+- **Prevention**: Ensure all classes have at least one course assigned
+
+**Issue**: "Cannot generate timetable. Selected date range provides X days but minimum Y days are required (based on class with most courses). Please select a longer date range."
+- **Cause**: The selected date range is insufficient for scheduling all courses based on the class with the highest number of courses
+- **Solution**: Select a longer date range. The minimum days needed equals the number of courses in the class with the most courses
+- **Calculation**: System calculates minimum days based on the class that has the highest number of courses assigned
+
+**Issue**: "No courses found in the system. Admin must upload the institutional course catalog"
+- **Cause**: Exam officers trying to upload class courses before admin uploads courses
+- **Solution**: Admin must first upload the institutional course catalog
+- **Workflow**: Courses → Classes → Halls → Class Courses → Timetable Generation
 
 **Issue**: `ImproperlyConfigured: STATIC_ROOT setting must not be empty`
 - **Cause**: Missing STATIC_ROOT configuration

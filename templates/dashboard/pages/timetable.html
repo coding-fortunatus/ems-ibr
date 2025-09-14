@@ -37,7 +37,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label for="period" class="form-label">Selcet Period</label>
+        <label for="period" class="form-label">Select Period</label>
         <select class="form-control-sm form-control bg-white py-2 text-dark" name="period" id="period">
           <option {% if request.GET.period == 'AM' %} selected {% endif %} value="AM">AM</option>
           <option {% if request.GET.period == 'PM' %} selected {% endif %} value="PM">PM</option>
