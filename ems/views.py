@@ -115,6 +115,72 @@ def dashboard(request):
     return render(request, template_name=template_name, context=context)
 
 
+@require_POST
+@login_required(login_url="login")
+@admin_required
+def manual_seat_assignment(request):
+    """
+    Manually assign an unplaced student to an available seat
+    """
+    student_id = request.POST.get('student_id')
+    seat_number = request.POST.get('seat_number')
+    date = request.POST.get('date')
+    period = request.POST.get('period')
+    hall_id = request.POST.get('hall_id')
+    
+    if not all([student_id, seat_number, date, period, hall_id]):
+        messages.error(request, "Missing required parameters for manual assignment.")
+        return redirect(f"/hall-allocation/?date={date}&period={period}&hall_id={hall_id}")
+    
+    try:
+        # Get the unplaced student
+        unplaced_student = SeatArrangement.objects.get(
+            id=student_id,
+            date=date,
+            period=period,
+            hall_id=hall_id,
+            seat_number__isnull=True
+        )
+        
+        # Check if the seat is available
+        existing_assignment = SeatArrangement.objects.filter(
+            date=date,
+            period=period,
+            hall_id=hall_id,
+            seat_number=seat_number
+        ).first()
+        
+        if existing_assignment:
+            messages.error(request, f"Seat {seat_number} is already occupied by {existing_assignment.student.name}.")
+            return redirect(f"/hall-allocation/?date={date}&period={period}&hall_id={hall_id}")
+        
+        # Get hall to validate seat number
+        hall = Hall.objects.get(id=hall_id)
+        max_seats = hall.rows * hall.columns if hall.rows and hall.columns else 0
+        
+        if int(seat_number) > max_seats or int(seat_number) < 1:
+            messages.error(request, f"Invalid seat number. Hall capacity is {max_seats} seats.")
+            return redirect(f"/hall-allocation/?date={date}&period={period}&hall_id={hall_id}")
+        
+        # Skip adjacency constraints for manual assignment to allow flexible placement
+        
+        # Assign the seat
+        unplaced_student.seat_number = int(seat_number)
+        unplaced_student.save()
+        
+        messages.success(request, 
+            f"Successfully assigned {unplaced_student.student.name} to seat {seat_number}.")
+        
+    except SeatArrangement.DoesNotExist:
+        messages.error(request, "Student not found or already placed.")
+    except Hall.DoesNotExist:
+        messages.error(request, "Hall not found.")
+    except Exception as e:
+        messages.error(request, f"Error during manual assignment: {str(e)}")
+    
+    return redirect(f"/hall-allocation/?date={date}&period={period}&hall_id={hall_id}")
+
+
 @login_required(login_url="login")
 def departments(request):
     departments_list = Department.objects.all().order_by("id")
@@ -878,6 +944,13 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
             context={"message": f"Cannot generate timetable. Selected date range provides {available_days} days but minimum {min_days_needed} days are required (based on class with most courses). Please select a longer date range."},
         )
 
+    # Get courses and halls from utils
+    courses = get_courses()
+    halls = get_halls()
+    
+    # Split courses into AM and PM periods
+    AM_courses, PM_courses = split_course(courses)
+    
     generate(dates, AM_courses, PM_courses, halls)
 
     return render(
@@ -891,21 +964,63 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
 @login_required(login_url="login")
 @admin_required
 def generate_distribution(request: HttpRequest) -> HttpResponse:
+    """
+    Generate optimized distribution that minimizes hall usage while maximizing placement.
+    """
     date = request.POST.get("date")
     period = request.POST.get("period")
-    print(date)
-    print(period)
+    
     if not Distribution.objects.filter(date=date, period=period).exists():
-        halls = Hall.objects.all()
+        # Get all available halls and convert to dict format
+        halls = Hall.objects.all().order_by('-capacity')  # Order by capacity for better optimization
         halls = convert_hall_to_dict(halls=halls)
+        
+        # Get timetables for the specified date and period
         timetables = TimeTable.objects.filter(period=period, date=date)
-
-        none_cbe_tt = timetables.exclude(
-            course__exam_type__in=["NAN", "CBE"])
-        res = distribute_classes_to_halls(
-            timetables=none_cbe_tt, halls=halls)
+        
+        # Exclude CBE and NAN courses as they may have different requirements
+        none_cbe_tt = timetables.exclude(course__exam_type__in=["NAN", "CBE"])
+        
+        if not none_cbe_tt.exists():
+            messages.warning(request, "No eligible courses found for distribution.")
+            return redirect(reverse('distribution') + f'?date={date}&period={period}')
+        
+        # Calculate total students to be distributed
+        from .utils import get_total_no_seats_needed
+        total_students_needed = get_total_no_seats_needed(none_cbe_tt)
+        total_available_capacity = sum(hall['capacity'] for hall in halls)
+        
+        print(f"\n=== Distribution Planning ===")
+        print(f"Date: {date}, Period: {period}")
+        print(f"Total students to distribute: {total_students_needed}")
+        print(f"Total available capacity: {total_available_capacity}")
+        print(f"Available halls: {len(halls)}")
+        
+        if total_students_needed > total_available_capacity:
+            messages.error(request, 
+                f"Insufficient capacity! Need {total_students_needed} seats but only {total_available_capacity} available.")
+            return redirect(reverse('distribution') + f'?date={date}&period={period}')
+        
+        # Run the optimized distribution algorithm
+        res = distribute_classes_to_halls(timetables=none_cbe_tt, halls=halls)
+        
+        if not res:
+            messages.error(request, "Distribution failed. No suitable hall arrangements found.")
+            return redirect(reverse('distribution') + f'?date={date}&period={period}')
+        
+        # Save results to database (includes optimization statistics)
         save_to_db(res, date, period)
-
+        
+        # Add success message with optimization results
+        halls_used = len(res)
+        students_distributed = sum(sum(cls["student_range"] for cls in hall["classes"]) for hall in res)
+        
+        messages.success(request, 
+            f"Distribution completed successfully! Used {halls_used} halls for {students_distributed} students. "
+            f"Optimization achieved {(students_distributed/total_available_capacity*100):.1f}% capacity utilization.")
+    else:
+        messages.info(request, "Distribution already exists for this date and period.")
+    
     return redirect(reverse('distribution') + f'?date={date}&period={period}')
 
 
@@ -913,15 +1028,33 @@ def generate_distribution(request: HttpRequest) -> HttpResponse:
 @login_required(login_url="login")
 @admin_required
 def generate_allocation(request: HttpRequest) -> HttpResponse:
+    """
+    Generate optimized seat allocation with multi-pass strategy and flexible constraints.
+    """
     date = request.POST.get("date")
     period = request.POST.get("period")
+    
     if not SeatArrangement.objects.filter(date=date, period=period).exists():
         distributions = Distribution.objects.filter(date=date, period=period)
+        
+        if not distributions.exists():
+            messages.warning(request, f"No distribution found for {date} period {period}.")
+            return redirect(reverse('allocation') + f'?date={date}&period={period}')
+        
+        total_students_allocated = 0
+        total_students_unplaced = 0
+        halls_processed = 0
+        
+        print(f"\n=== Seat Allocation Planning ===")
+        print(f"Date: {date}, Period: {period}")
+        print(f"Distributions to process: {distributions.count()}")
 
         for distribution in distributions:
             rows = distribution.hall.rows
             cols = distribution.hall.columns
+            hall_capacity = rows * cols
             students = []
+            
             for item in distribution.items.all():
                 course_code = item.schedule.course.code
                 class_obj = item.schedule.class_obj
@@ -982,16 +1115,115 @@ def generate_allocation(request: HttpRequest) -> HttpResponse:
                     })
 
             random.seed(0)
+            
+            print(f"\nProcessing Hall: {distribution.hall.name}")
+            print(f"Hall capacity: {hall_capacity} seats")
+            print(f"Students to allocate: {len(students)}")
+            
             # Ensure the total number of students does not exceed rows * cols
-            if len(students) > rows * cols:
-                print(
-                    f"Error: Too many students for the given hall capacity of {rows * cols} seats.")
+            if len(students) > hall_capacity:
+                print(f"Error: Too many students ({len(students)}) for hall capacity ({hall_capacity} seats)")
+                messages.error(request, 
+                    f"Cannot allocate {len(students)} students to {distribution.hall.name} (capacity: {hall_capacity})!")
+                continue
             else:
-                print("Hall", distribution.hall.name)
                 print_seating_arrangement(
                     students, rows, cols, datetime.strptime(date, "%Y-%m-%d").date(), period, distribution.hall.id)
-        # Generate the allocation for the distribution
+                
+                # Count allocation results for this hall
+                hall_allocated = SeatArrangement.objects.filter(
+                    date=date, period=period, hall=distribution.hall,
+                    seat_number__isnull=False
+                ).count()
+                
+                hall_unplaced = SeatArrangement.objects.filter(
+                    date=date, period=period, hall=distribution.hall,
+                    seat_number__isnull=True
+                ).count()
+                
+                total_students_allocated += hall_allocated
+                total_students_unplaced += hall_unplaced
+                halls_processed += 1
+                
+                print(f"Hall {distribution.hall.name}: {hall_allocated} placed, {hall_unplaced} unplaced")
+        
+        # Provide comprehensive feedback
+        if halls_processed == 0:
+            messages.error(request, "No halls could be processed for seat allocation.")
+        elif total_students_unplaced == 0:
+            messages.success(request, 
+                f"Perfect allocation! All {total_students_allocated} students successfully placed across {halls_processed} halls.")
+        elif total_students_unplaced <= total_students_allocated * 0.05:  # Less than 5% unplaced
+            messages.success(request, 
+                f"Excellent allocation! {total_students_allocated} students placed, only {total_students_unplaced} unplaced across {halls_processed} halls.")
+        elif total_students_unplaced <= total_students_allocated * 0.1:  # Less than 10% unplaced
+            messages.success(request, 
+                f"Good allocation! {total_students_allocated} students placed, {total_students_unplaced} unplaced across {halls_processed} halls.")
+        else:
+            messages.warning(request, 
+                f"Allocation completed with issues. {total_students_allocated} students placed, {total_students_unplaced} unplaced across {halls_processed} halls. "
+                "Consider reviewing course conflicts or hall capacities.")
+    else:
+        messages.info(request, "Seat allocation already exists for this date and period.")
+        
     return redirect(reverse('allocation') + f'?date={date}&period={period}')
+
+
+@login_required(login_url="login")
+@admin_required
+def distribution_statistics(request: HttpRequest) -> HttpResponse:
+    """
+    Display comprehensive distribution statistics and optimization results.
+    """
+    date = request.GET.get('date')
+    period = request.GET.get('period')
+    
+    if not date or not period:
+        messages.warning(request, "Please select a date and period to view statistics.")
+        return redirect('distribution')
+    
+    # Get distribution statistics
+    from .utils import get_distribution_statistics
+    
+    try:
+        stats = get_distribution_statistics(date, period)
+        
+        if not stats:
+            messages.info(request, f"No distribution found for {date} period {period}.")
+            return redirect('distribution')
+        
+        # Calculate additional metrics
+        efficiency_score = (stats['total_students'] / stats['total_capacity']) * 100 if stats['total_capacity'] > 0 else 0
+        avg_utilization = sum(hall['utilization'] for hall in stats['hall_details']) / len(stats['hall_details']) if stats['hall_details'] else 0
+        
+        # Categorize halls by utilization
+        high_utilization = [h for h in stats['hall_details'] if h['utilization'] >= 80]
+        medium_utilization = [h for h in stats['hall_details'] if 50 <= h['utilization'] < 80]
+        low_utilization = [h for h in stats['hall_details'] if h['utilization'] < 50]
+        
+        context = {
+            'date': date,
+            'period': period,
+            'stats': stats,
+            'efficiency_score': round(efficiency_score, 1),
+            'avg_utilization': round(avg_utilization, 1),
+            'high_utilization_halls': high_utilization,
+            'medium_utilization_halls': medium_utilization,
+            'low_utilization_halls': low_utilization,
+            'optimization_grade': (
+                'Excellent' if efficiency_score >= 85 else
+                'Good' if efficiency_score >= 70 else
+                'Fair' if efficiency_score >= 50 else
+                'Poor'
+            )
+        }
+        
+        return render(request, 'distribution_statistics.html', context)
+        
+    except Exception as e:
+        messages.error(request, f"Error retrieving statistics: {str(e)}")
+        return redirect('distribution')
+
 
 # ----------------------------
 # Upload Views

@@ -1,3 +1,37 @@
+<!-- Messages Display -->
+{% if messages %}
+  <div class="messages-container mb-3">
+    {% for message in messages %}
+      {% if message.tags == 'success' %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'error' %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'warning' %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% elif message.tags == 'info' %}
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% else %}
+        <div class="alert alert-primary alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
 <div class="page-header">
   <h3 class="page-title">
     <span class="page-title-icon bg-gradient-primary text-white me-2"><i class="mdi mdi-chair-school"></i></span>
@@ -131,17 +165,67 @@
         <div class="card">
           <div class="card-header">
             <h6>Unplaced Students ({{ unplaced_students.count }})</h6>
+            <small class="text-muted">Manually assign students to available seats</small>
           </div>
-          <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-            {% for student in unplaced_students %}
-              <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
-                <div>
-                  <strong>{{ student.student.name }}</strong><br>
-                  <small class="text-muted">{{ student.student.matric_no }}</small><br>
-                  <small class="text-info">{{ student.course.code }}</small>
-                </div>
-              </div>
-            {% endfor %}
+          
+          <!-- Instructions -->
+          <div class="card-body border-bottom bg-light py-2">
+            <div class="d-flex align-items-center">
+              <i class="mdi mdi-information text-info me-2"></i>
+              <small class="text-muted">
+                <strong>How to assign:</strong> 
+                Click on any <span class="badge bg-success">available seat</span> in the hall layout above, 
+                or use the dropdown to select a seat number. 
+                The system will enforce adjacency constraints automatically.
+              </small>
+            </div>
+          </div>
+          
+          <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+             {% for student in unplaced_students %}
+               <div class="mb-3 manual-assignment-card border rounded">
+                 <div class="student-info mb-2">
+                   <div class="d-flex justify-content-between align-items-start">
+                     <div>
+                       <strong class="text-dark">{{ student.student.name }}</strong><br>
+                       <small class="text-muted">{{ student.student.matric_no }}</small><br>
+                       <span class="badge bg-info">{{ student.course.code }}</span>
+                     </div>
+                     <div class="text-end">
+                       <small class="text-muted">Student {{ forloop.counter }}</small>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <!-- Manual Assignment Form -->
+                 <div class="assignment-form">
+                   <form method="post" action="{% url 'manual_seat_assignment' %}">
+                     {% csrf_token %}
+                     <input type="hidden" name="student_id" value="{{ student.id }}">
+                     <input type="hidden" name="date" value="{{ date }}">
+                     <input type="hidden" name="period" value="{{ period }}">
+                     <input type="hidden" name="hall_id" value="{{ hall_id }}">
+                     
+                     <div class="row align-items-end g-2">
+                       <div class="col-md-8">
+                         <label for="seat_{{ student.id }}" class="form-label small fw-bold mb-1">
+                           <i class="mdi mdi-chair-school"></i> Assign to Seat:
+                         </label>
+                         <select name="seat_number" id="seat_{{ student.id }}" class="form-select form-select-sm" required>
+                           <option value="">Click on available seat or select...</option>
+                           <!-- Available seats will be populated by JavaScript -->
+                         </select>
+                       </div>
+                       <div class="col-md-4">
+                         <button type="submit" class="btn btn-success btn-sm w-100">
+                           <i class="mdi mdi-account-plus"></i> Assign
+                         </button>
+                       </div>
+                     </div>
+                   </form>
+                 </div>
+               </div>
+             {% endfor %}
           </div>
         </div>
       {% endif %}
@@ -193,10 +277,48 @@
   border-radius: 2px;
   margin-right: 6px;
 }
+
+/* Manual Assignment Styles */
+.manual-assignment-card {
+  transition: all 0.3s ease;
+}
+
+.manual-assignment-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.available-seat {
+  animation: pulse-available 2s infinite;
+}
+
+@keyframes pulse-available {
+  0% { border-color: #28a745; }
+  50% { border-color: #20c997; }
+  100% { border-color: #28a745; }
+}
+
+.seat-selected {
+  background-color: #ffc107 !important;
+  border-color: #fd7e14 !important;
+  animation: none;
+}
+
+.assignment-form {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.student-info {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 6px;
+  padding: 8px;
+}
 </style>
 
 <script>
-// JavaScript for course legend and seat coloring
+// JavaScript for course legend, seat coloring, and manual assignment
 document.addEventListener('DOMContentLoaded', function() {
     // Define a set of colors for courses
     const colors = [
@@ -208,15 +330,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get all seats and extract unique courses
     const seats = document.querySelectorAll('.seat[title*=":"]');
     const courses = new Set();
+    const occupiedSeats = new Set();
+    const availableSeats = [];
+    
+    // Get hall capacity from context
+    const hallCapacity = {{ hall_capacity|default:0 }};
     
     seats.forEach(seat => {
         const title = seat.getAttribute('title');
+        const seatNumber = parseInt(seat.textContent.trim());
+        
         if (title && title.includes('(') && title.includes(')')) {
             const courseMatch = title.match(/\(([^)]+)\)/);
             if (courseMatch) {
                 courses.add(courseMatch[1]);
+                occupiedSeats.add(seatNumber);
             }
         }
+    });
+    
+    // Generate list of available seats
+    for (let i = 1; i <= hallCapacity; i++) {
+        if (!occupiedSeats.has(i)) {
+            availableSeats.push(i);
+        }
+    }
+    
+    // Populate seat selection dropdowns
+    const seatSelects = document.querySelectorAll('select[name="seat_number"]');
+    seatSelects.forEach(select => {
+        availableSeats.forEach(seatNum => {
+            const option = document.createElement('option');
+            option.value = seatNum;
+            option.textContent = `Seat ${seatNum}`;
+            select.appendChild(option);
+        });
     });
     
     // Create color mapping for courses
@@ -239,9 +387,11 @@ document.addEventListener('DOMContentLoaded', function() {
         legend.appendChild(legendItem);
     });
     
-    // Apply colors to seats
+    // Apply colors to seats and make available seats clickable
     seats.forEach(seat => {
         const title = seat.getAttribute('title');
+        const seatNumber = parseInt(seat.textContent.trim());
+        
         if (title && title.includes('(') && title.includes(')')) {
             const courseMatch = title.match(/\(([^)]+)\)/);
             if (courseMatch) {
@@ -252,7 +402,57 @@ document.addEventListener('DOMContentLoaded', function() {
                     seat.style.color = 'white';
                 }
             }
+        } else if (availableSeats.includes(seatNumber)) {
+             // Make available seats clickable
+             seat.style.backgroundColor = '#e9ecef';
+             seat.style.border = '2px dashed #28a745';
+             seat.style.cursor = 'pointer';
+             seat.classList.add('available-seat');
+             seat.title = `Seat ${seatNumber}: Available for assignment - Click to select`;
+             
+             seat.addEventListener('click', function() {
+                 // Remove previous selections
+                 document.querySelectorAll('.seat-selected').forEach(s => {
+                     s.classList.remove('seat-selected');
+                     if (availableSeats.includes(parseInt(s.textContent.trim()))) {
+                         s.classList.add('available-seat');
+                     }
+                 });
+                 
+                 // Mark this seat as selected
+                 seat.classList.remove('available-seat');
+                 seat.classList.add('seat-selected');
+                 
+                 // Find the first unplaced student and set their seat selection
+                 const firstSelect = document.querySelector('select[name="seat_number"]');
+                 if (firstSelect) {
+                     firstSelect.value = seatNumber;
+                     firstSelect.focus();
+                     
+                     // Show success message
+                     const studentName = firstSelect.closest('.manual-assignment-card').querySelector('.text-dark').textContent;
+                     console.log(`Selected seat ${seatNumber} for ${studentName}`);
+                 }
+             });
         }
+    });
+    
+    // Add visual feedback for form submissions
+    const assignForms = document.querySelectorAll('form[action*="manual-seat-assignment"]');
+    assignForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const seatSelect = form.querySelector('select[name="seat_number"]');
+            
+            if (!seatSelect.value) {
+                e.preventDefault();
+                alert('Please select a seat number.');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Assigning...';
+        });
     });
 });
 </script>

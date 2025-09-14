@@ -49,6 +49,8 @@ urlpatterns = [
          name="generate_timetable"),
     path("distribute-halls", view=views.generate_distribution,
          name="generate_distribution"),
+    path("distribution-statistics/", view=views.distribution_statistics,
+         name="distribution_statistics"),
     path("generate-allocation", view=views.generate_allocation,
          name="generate_allocation"),
     path('export-timetable', csv_gen.export_department_timetable,
@@ -62,6 +64,7 @@ urlpatterns = [
     path('generate_broadsheet/', view=views.generate_broadsheet,
          name="generate_broadsheet"),
     path('hall-allocation/', view=views.hall_allocation, name="hall_allocation"),
+    path('manual-seat-assignment/', view=views.manual_seat_assignment, name="manual_seat_assignment"),
     path('bulk-upload', view=views.bulk_upload, name='bulk-upload'),
     path('reset', view=views.reset_system, name="reset-system")
 ]

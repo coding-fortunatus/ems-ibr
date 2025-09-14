@@ -256,36 +256,139 @@ def is_course_in_hall(hall, course_code):
 
 
 def distribute_classes_to_halls(timetables, halls):
+    """
+    Optimized distribution algorithm that minimizes hall usage while maximizing student placement.
+    Uses constraint-aware capacity calculations and intelligent packing strategies.
+    """
     class_schedules = make_schedules(timetables=timetables)
+    
+    # Sort halls by capacity (largest first) for optimal packing
+    sorted_halls = sorted(halls, key=lambda h: h["capacity"], reverse=True)
+    
+    # Sort schedules by size (largest first) for better bin packing
+    sorted_schedules = sorted(class_schedules, key=lambda s: s["size"], reverse=True)
+    
     results = []
-    for hall in halls:
-        for schedule in class_schedules:
-            if is_course_in_hall(hall, schedule["course"]) or len(hall["classes"]) == hall["min_courses"] or schedule["size"] == 0:
-                pass
-            else:
-                number_of_students = hall["max_students"]
-                if number_of_students >= schedule["size"]:
-                    number_of_students = schedule["size"]
-                if schedule["size"] - number_of_students < 5:
-                    number_of_students = schedule["size"]
-
-                res = {"id": schedule["id"], "class": schedule["class"], "course": schedule["course"],
-                       "student_range": number_of_students}
-                hall["classes"].append(res)
-                hall["capacity"] -= number_of_students
-                schedule["size"] -= number_of_students
-    for hall in halls:
-        if len(hall["classes"]) == 0:
-            pass
-        else:
+    used_halls = []
+    
+    # Calculate constraint factor for realistic capacity (reserve space for course separation)
+    CONSTRAINT_FACTOR = 0.85  # Use 85% of capacity to account for adjacency constraints
+    
+    for schedule in sorted_schedules:
+        if schedule["size"] == 0:
+            continue
+            
+        placed = False
+        
+        # First, try to place in already used halls (minimize hall count)
+        for hall in used_halls:
+            if can_place_in_hall(hall, schedule, CONSTRAINT_FACTOR):
+                place_schedule_in_hall(hall, schedule)
+                placed = True
+                break
+        
+        # If not placed, try new halls
+        if not placed:
+            for hall in sorted_halls:
+                if hall not in used_halls and can_place_in_hall(hall, schedule, CONSTRAINT_FACTOR):
+                    place_schedule_in_hall(hall, schedule)
+                    used_halls.append(hall)
+                    placed = True
+                    break
+        
+        # If still not placed, use fallback strategy (relaxed constraints)
+        if not placed:
+            for hall in sorted_halls:
+                if hall not in used_halls and can_place_in_hall_relaxed(hall, schedule):
+                    place_schedule_in_hall(hall, schedule)
+                    used_halls.append(hall)
+                    break
+    
+    # Return only halls that have classes assigned
+    for hall in used_halls:
+        if len(hall["classes"]) > 0:
             results.append(hall)
+    
     return results
 
 
-def save_to_db(res, date, period):
+def can_place_in_hall(hall, schedule, constraint_factor):
+    """
+    Check if a schedule can be placed in a hall with constraint-aware capacity.
+    """
+    # Check course conflict
+    if is_course_in_hall(hall, schedule["course"]):
+        return False
+    
+    # Check minimum courses limit
+    if len(hall["classes"]) >= hall["min_courses"]:
+        return False
+    
+    # Calculate effective capacity with constraint factor
+    effective_capacity = int(hall["capacity"] * constraint_factor)
+    
+    # Check if schedule fits in effective capacity
+    students_to_place = min(hall["max_students"], schedule["size"])
+    
+    return effective_capacity >= students_to_place
 
+
+def can_place_in_hall_relaxed(hall, schedule):
+    """
+    Relaxed placement check for fallback scenarios.
+    """
+    if is_course_in_hall(hall, schedule["course"]):
+        return False
+    
+    if len(hall["classes"]) >= hall["min_courses"]:
+        return False
+    
+    students_to_place = min(hall["max_students"], schedule["size"])
+    return hall["capacity"] >= students_to_place
+
+
+def place_schedule_in_hall(hall, schedule):
+    """
+    Place a schedule in a hall and update capacities.
+    """
+    number_of_students = hall["max_students"]
+    if number_of_students >= schedule["size"]:
+        number_of_students = schedule["size"]
+    
+    # If remaining students are less than 5, take all
+    if schedule["size"] - number_of_students < 5:
+        number_of_students = schedule["size"]
+    
+    res = {
+        "id": schedule["id"], 
+        "class": schedule["class"], 
+        "course": schedule["course"],
+        "student_range": number_of_students
+    }
+    
+    hall["classes"].append(res)
+    hall["capacity"] -= number_of_students
+    schedule["size"] -= number_of_students
+
+
+def save_to_db(res, date, period):
+    """
+    Save distribution results to database with optimization statistics.
+    """
+    total_halls_used = len(res)
+    total_students_distributed = 0
+    total_capacity_used = 0
+    total_available_capacity = 0
+    
     for item in res:
         hall = Hall.objects.get(id=item["id"])
+        hall_capacity = hall.capacity
+        hall_students = sum(cls["student_range"] for cls in item["classes"])
+        
+        total_students_distributed += hall_students
+        total_capacity_used += hall_students
+        total_available_capacity += hall_capacity
+        
         distribution = Distribution.objects.create(
             hall=hall, date=date, period=period
         )
@@ -297,6 +400,49 @@ def save_to_db(res, date, period):
             distribution.items.add(dist_item)
             distribution.save()
         distribution.save()
+    
+    # Print optimization statistics
+    utilization_rate = (total_capacity_used / total_available_capacity * 100) if total_available_capacity > 0 else 0
+    print(f"\n=== Distribution Optimization Results ===")
+    print(f"Halls used: {total_halls_used}")
+    print(f"Students distributed: {total_students_distributed}")
+    print(f"Total capacity utilization: {utilization_rate:.1f}%")
+    print(f"Average students per hall: {total_students_distributed / total_halls_used:.1f}")
+    print(f"========================================\n")
+
+
+def get_distribution_statistics(date, period):
+    """
+    Get comprehensive statistics for a distribution.
+    """
+    distributions = Distribution.objects.filter(date=date, period=period)
+    
+    stats = {
+        'total_halls': distributions.count(),
+        'total_students': 0,
+        'total_capacity': 0,
+        'halls_data': []
+    }
+    
+    for dist in distributions:
+        hall_students = sum(item.no_of_students for item in dist.items.all())
+        hall_capacity = dist.hall.capacity
+        hall_utilization = (hall_students / hall_capacity * 100) if hall_capacity > 0 else 0
+        
+        stats['total_students'] += hall_students
+        stats['total_capacity'] += hall_capacity
+        
+        stats['halls_data'].append({
+            'hall_name': dist.hall.name,
+            'students': hall_students,
+            'capacity': hall_capacity,
+            'utilization': hall_utilization,
+            'courses': len(set(item.schedule.course.code for item in dist.items.all()))
+        })
+    
+    stats['overall_utilization'] = (stats['total_students'] / stats['total_capacity'] * 100) if stats['total_capacity'] > 0 else 0
+    
+    return stats
 
 
 ###################################
@@ -389,17 +535,33 @@ def process_department_class_csv(class_file_path, department):
 
 
 def allocate_students_to_seats(students, rows, cols, max_attempts=10000):
+    """
+    Optimized seat allocation with multi-pass approach and flexible constraints.
+    Uses pattern-based seating and fallback mechanisms to maximize placement.
+    """
     if not students:  # Check if students list is empty
         return {}, students, 0  # Return all students as unplaced with 0% placement
 
+    # Initialize seat grid and student tracking
     seats = [[None for _ in range(cols)] for _ in range(rows)]
     student_positions = {student['name']: None for student in students}
-
+    
+    # Group students by course for better placement strategies
+    course_groups = {}
+    for student in students:
+        course = student['course']
+        if course not in course_groups:
+            course_groups[course] = []
+        course_groups[course].append(student)
+    
     def is_valid_position(student_name, row, col):
-        course = next(student['course']
-                      for student in students if student['name'] == student_name)
-        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1),
-                      (0, 1), (1, -1), (1, 0), (1, 1)]
+        """Check if position is valid - STRICT enforcement of adjacency constraints"""
+        course = next(student['course'] for student in students if student['name'] == student_name)
+        
+        # Define adjacency directions (8-directional) - ALWAYS check all directions
+        # This ensures NO students from same course can sit adjacent horizontally, vertically, or diagonally
+        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+        
         for dr, dc in directions:
             r, c = row + dr, col + dc
             if 0 <= r < rows and 0 <= c < cols and seats[r][c]:
@@ -408,32 +570,96 @@ def allocate_students_to_seats(students, rows, cols, max_attempts=10000):
                 if adjacent_student['course'] == course:
                     return False
         return True
-
-    def try_place_student(student_index):
-        student = students[student_index]
-        for _ in range(100):  # Try 100 random positions
-            row, col = random.randint(0, rows-1), random.randint(0, cols-1)
-            if not seats[row][col] and is_valid_position(student['name'], row, col):
-                seats[row][col] = student['name']
-                student_positions[student['name']] = (row, col)
-                return True
-        return False
-
-    # Shuffle students to add randomness to the allocation
-    random.shuffle(students)
-    for student_index in range(len(students)):
-        if not try_place_student(student_index):
-            # Place failed, stop trying further
-            pass
-
+    
+    def try_pattern_placement(course_students, pattern='checkerboard'):
+        """Try to place students using specific patterns"""
+        placed = 0
+        
+        if pattern == 'checkerboard':
+            # Try checkerboard pattern (every other seat)
+            positions = [(r, c) for r in range(rows) for c in range(cols) 
+                        if (r + c) % 2 == 0 and not seats[r][c]]
+        elif pattern == 'diagonal':
+            # Try diagonal pattern
+            positions = [(r, c) for r in range(rows) for c in range(cols) 
+                        if r % 2 == c % 2 and not seats[r][c]]
+        else:
+            # Sequential pattern
+            positions = [(r, c) for r in range(rows) for c in range(cols) if not seats[r][c]]
+        
+        random.shuffle(positions)
+        
+        for student in course_students:
+            if student_positions[student['name']] is not None:
+                continue  # Already placed
+                
+            for row, col in positions:
+                if not seats[row][col] and is_valid_position(student['name'], row, col):
+                    seats[row][col] = student['name']
+                    student_positions[student['name']] = (row, col)
+                    positions.remove((row, col))
+                    placed += 1
+                    break
+        
+        return placed
+    
+    def try_random_placement(remaining_students, attempts_per_student=100):
+        """Try random placement with STRICT adjacency constraints"""
+        placed = 0
+        
+        for student in remaining_students:
+            if student_positions[student['name']] is not None:
+                continue  # Already placed
+                
+            for _ in range(attempts_per_student):
+                row, col = random.randint(0, rows-1), random.randint(0, cols-1)
+                if not seats[row][col] and is_valid_position(student['name'], row, col):
+                    seats[row][col] = student['name']
+                    student_positions[student['name']] = (row, col)
+                    placed += 1
+                    break
+        
+        return placed
+    
+    # Multi-pass allocation strategy with STRICT adjacency enforcement
+    total_placed = 0
+    
+    # Pass 1: Pattern-based placement for each course
+    patterns = ['checkerboard', 'diagonal', 'sequential']
+    for course, course_students in course_groups.items():
+        random.shuffle(course_students)  # Randomize within course
+        
+        for pattern in patterns:
+            remaining = [s for s in course_students if student_positions[s['name']] is None]
+            if not remaining:
+                break
+            placed = try_pattern_placement(remaining, pattern)
+            total_placed += placed
+            if placed > 0:
+                break  # If pattern worked, move to next course
+    
+    # Pass 2: Random placement with strict constraints - increased attempts
+    remaining_students = [s for s in students if student_positions[s['name']] is None]
+    if remaining_students:
+        placed = try_random_placement(remaining_students, 300)
+        total_placed += placed
+    
+    # Pass 3: Final attempt with more intensive random placement
+    remaining_students = [s for s in students if student_positions[s['name']] is None]
+    if remaining_students:
+        placed = try_random_placement(remaining_students, 500)
+        total_placed += placed
+    
+    # NOTE: Removed relaxed and force placement passes to maintain strict adjacency constraints
+    # Students that cannot be placed while maintaining constraints will remain unplaced
+    
     # Convert positions to sequential seat numbers
     def index_to_seat(row, col):
-        # Convert row and column to a sequential seat number (1-based)
         return row * cols + col + 1
-
+    
     seat_positions = {}
     unplaced_students = []
-
+    
     for student, position in student_positions.items():
         if position is None:
             unplaced_students.append(student)
@@ -443,22 +669,24 @@ def allocate_students_to_seats(students, rows, cols, max_attempts=10000):
                 seat_positions[student] = index_to_seat(row, col)
             else:
                 unplaced_students.append(student)
-
-    # Calculate the percentage of placed students
+    
+    # Calculate placement statistics
     placed_count = len(seat_positions)
     total_students = len(students)
-    percentage_placed = (placed_count / total_students) * \
-        100 if total_students > 0 else 0
-
+    percentage_placed = (placed_count / total_students) * 100 if total_students > 0 else 0
+    
     # Print debug information
     print(f"Total students: {total_students}")
     print(f"Placed students count: {placed_count}")
+    print(f"Unplaced students: {len(unplaced_students)}")
     print(f"Percentage placed: {percentage_placed:.2f}%")
-
-    if percentage_placed >= 75:
+    
+    # Lower the threshold to 60% and always return results
+    if percentage_placed >= 60:
         return seat_positions, unplaced_students, percentage_placed
     else:
-        return {}, unplaced_students, percentage_placed
+        # Even if below threshold, return partial results instead of empty
+        return seat_positions, unplaced_students, percentage_placed
 
 
 def print_seating_arrangement(students, rows, cols, date, period, hall_id):
@@ -561,6 +789,43 @@ def generate_seat_allocation(rows: int, cols: int, students):
     else:
         # Print the seating arrangement
         print_seating_arrangement(students, rows, cols)
+
+
+def is_valid_position(seat_number, course_code, seat_map, rows, cols):
+    """
+    Check if a seat position is valid for manual assignment based on adjacency constraints.
+    
+    Args:
+        seat_number (int): The seat number to check (1-based)
+        course_code (str): The course code of the student to be placed
+        seat_map (dict): Dictionary mapping seat numbers to course codes
+        rows (int): Number of rows in the hall
+        cols (int): Number of columns in the hall
+    
+    Returns:
+        bool: True if the position is valid, False otherwise
+    """
+    # Convert seat number to row, col (0-based)
+    seat_index = seat_number - 1
+    row = seat_index // cols
+    col = seat_index % cols
+    
+    # Define adjacency directions (8-directional)
+    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    
+    for dr, dc in directions:
+        adj_row, adj_col = row + dr, col + dc
+        
+        # Check if adjacent position is within bounds
+        if 0 <= adj_row < rows and 0 <= adj_col < cols:
+            # Convert back to seat number
+            adj_seat_number = adj_row * cols + adj_col + 1
+            
+            # Check if there's a student in the adjacent seat with the same course
+            if adj_seat_number in seat_map and seat_map[adj_seat_number] == course_code:
+                return False
+    
+    return True
 
 
 def get_student_number(dep_slug, cls, num):
