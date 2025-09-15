@@ -166,10 +166,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     
-    # Use environment-specific static root
-    STATIC_ROOT = env("STATIC_ROOT", default=os.path.join(BASE_DIR, 'staticfiles'))
-    MEDIA_ROOT = env("MEDIA_ROOT", default=BASE_DIR / "media")
-
+  
 
 
 # Logging Configuration
