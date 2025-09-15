@@ -16,12 +16,12 @@ environ.Env.read_env(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "g*@kqr0q625831b)^msptwh#na3wkjbj5@rk9ac7=r+6613k^m"
+SECRET_KEY = env("SECRET_KEY", default="g*@kqr0q625831b)^msptwh#na3wkjbj5@rk9ac7=r+6613k^m")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = ['ems-ibr.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['ems-ibr.onrender.com', 'localhost', '127.0.0.1'])
 
 
 # Application definition
@@ -79,24 +79,22 @@ WSGI_APPLICATION = "core.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    # "default": {
-    #     "ENGINE": "django.db.backends.postgresql_psycopg2",
-    #     "NAME": env("PGDATABASE"),
-    #     "USER": env("PGUSER"),
-    #     "PASSWORD": env("PGPASSWORD"),
-    #     "HOST": env("PGHOST"),
-    #     "PORT": env("PGPORT", default=5432),
-    #     "OPTIONS": {
-    #         'sslmode': 'require'
-    #     }
-    # }
-
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database configuration
+# Use PostgreSQL if DATABASE_URL is provided, otherwise fallback to SQLite
+if env("DATABASE_URL", default=None):
+    # PostgreSQL Database Configuration (for production)
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(env("DATABASE_URL"))
     }
-}
+else:
+    # Fallback to SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -154,3 +152,70 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Production Security Settings
+if not DEBUG:
+    # Security settings for production
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
+    CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
+    SECURE_BROWSER_XSS_FILTER = env.bool("SECURE_BROWSER_XSS_FILTER", default=True)
+    SECURE_CONTENT_TYPE_NOSNIFF = env.bool("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Use environment-specific static root
+    STATIC_ROOT = env("STATIC_ROOT", default=os.path.join(BASE_DIR, 'staticfiles'))
+    MEDIA_ROOT = env("MEDIA_ROOT", default=BASE_DIR / "media")
+
+
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': env("LOG_LEVEL", default="INFO"),
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': env("LOG_LEVEL", default="INFO"),
+            'propagate': False,
+        },
+        'ems': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': env("LOG_LEVEL", default="INFO"),
+            'propagate': False,
+        },
+    },
+}
+
+# Create logs directory if it doesn't exist
+if not DEBUG:
+    logs_dir = BASE_DIR / 'logs'
+    logs_dir.mkdir(exist_ok=True)

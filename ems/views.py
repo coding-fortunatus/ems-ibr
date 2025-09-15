@@ -100,10 +100,25 @@ def dashboard(request):
     if not settings:
         SystemSettings.objects.create(
             session='2024/2025', semester='1st Semester')
-    departments = Department.objects.all().count()
-    halls = Hall.objects.all().count()
-    courses = Course.objects.all().count()
-    students = Class.objects.aggregate(total_size=Sum('size'))['total_size']
+    
+    # Filter statistics based on user role
+    if request.user.is_staff:
+        # Admin users see all data
+        departments = Department.objects.all().count()
+        halls = Hall.objects.all().count()
+        courses = Course.objects.all().count()
+        students = Class.objects.aggregate(total_size=Sum('size'))['total_size']
+    else:
+        # Non-admin users see only their department data
+        if request.user.department:
+            departments = 1  # Only their department
+            halls = Hall.objects.all().count()  # Halls are shared resources
+            # Courses from classes in their department
+            dept_classes = Class.objects.filter(department=request.user.department)
+            courses = Course.objects.filter(courses__in=dept_classes).distinct().count()
+            students = dept_classes.aggregate(total_size=Sum('size'))['total_size']
+        else:
+            departments = halls = courses = students = 0
 
     context = {
         "departments_count": departments,
@@ -228,7 +243,13 @@ def manual_seat_assignment(request):
 
 @login_required(login_url="login")
 def departments(request):
-    departments_list = Department.objects.all().order_by("id")
+    # Filter departments based on user role
+    if request.user.is_staff:
+        departments_list = Department.objects.all().order_by("id")
+    else:
+        # Non-admin users can only see their own department
+        departments_list = Department.objects.filter(id=request.user.department.id) if request.user.department else Department.objects.none()
+    
     query = request.GET.get("query")
     if query:
         departments_list = departments_list.filter(
@@ -250,6 +271,12 @@ def departments(request):
 @login_required(login_url="login")
 def get_department(request, slug):
     department = get_object_or_404(Department, slug=slug)
+    
+    # Check if user has permission to view this department
+    if not request.user.is_staff and request.user.department != department:
+        messages.error(request, "You don't have permission to view this department.")
+        return redirect('departments')
+    
     classes = Class.objects.filter(department=department)
     context = {"department": department, "classes": classes}
     if request.htmx:
@@ -262,7 +289,17 @@ def get_department(request, slug):
 
 @login_required(login_url="login")
 def get_courses_view(request):
-    course_list = Course.objects.all().order_by("id")
+    # Filter courses based on user role
+    if request.user.is_staff:
+        course_list = Course.objects.all().order_by("id")
+    else:
+        # Non-admin users see only courses from their department's classes
+        if request.user.department:
+            dept_classes = Class.objects.filter(department=request.user.department)
+            course_list = Course.objects.filter(courses__in=dept_classes).distinct().order_by("id")
+        else:
+            course_list = Course.objects.none()
+    
     query = request.GET.get("query")
     if query:
         course_list = course_list.filter(
@@ -307,6 +344,12 @@ def get_students(request):
 @login_required(login_url="login")
 def get_class_course(request, slug, id):
     cls = get_object_or_404(Class, department__slug=slug, id=id)
+    
+    # Check if user has permission to view this class
+    if not request.user.is_staff and request.user.department != cls.department:
+        messages.error(request, "You don't have permission to view this class.")
+        return redirect('departments')
+    
     students = Student.objects.filter(level=cls, department=cls.department)
     context = {"class": cls, "courses": cls.courses.all(),
                "students": students}
@@ -364,7 +407,6 @@ def timetable(request: HttpRequest) -> HttpResponse:
 
 
 @login_required(login_url="login")
-@admin_required
 def distribution(request):
     generated = Distribution.objects.exists()
     dates = TimeTable.objects.values_list(
@@ -378,13 +420,20 @@ def distribution(request):
         "period": period
     }
     if generated:
-
         if date and period:
             distributions = Distribution.objects.filter(
                 date=date, period=period)
         else:
             distributions = Distribution.objects.filter(
                 date=dates[0], period="AM")
+        
+        # Filter distributions based on user role
+        if not request.user.is_staff and request.user.department:
+            # Non-admin users see only distributions for their department's classes
+            distributions = distributions.filter(
+                items__schedule__class_obj__department=request.user.department
+            ).distinct()
+        
         context["distributions"] = distributions
 
     if request.htmx:
@@ -396,7 +445,6 @@ def distribution(request):
 
 
 @login_required(login_url="login")
-@admin_required
 def allocation(request):
     generated = SeatArrangement.objects.exists()
     dates = TimeTable.objects.values_list(
@@ -436,6 +484,13 @@ def allocation(request):
             date = dates[0]
             period = "AM"
 
+        # Filter arrangements based on user role
+        if not request.user.is_staff and request.user.department:
+            # Non-admin users see only arrangements for their department's classes
+            arrangements = arrangements.filter(
+                cls__department=request.user.department
+            )
+
         hall_arrangements = arrangements.values('hall__name', 'hall__id', 'date', 'period').annotate(
             placed=Count('id', filter=Q(seat_number__isnull=False)),
             not_placed=Count('id', filter=Q(seat_number__isnull=True))
@@ -451,7 +506,6 @@ def allocation(request):
 
 
 @login_required(login_url="login")
-@admin_required
 def hall_allocation(request):
     """
     View for detailed hall allocation with visual seat layout
@@ -493,8 +547,13 @@ def hall_allocation(request):
             arrangements = SeatArrangement.objects.filter(
                 date=dates[0], period="AM", hall_id=hall_id
             )
-            date = dates[0]
-            period = "AM"
+        
+        # Filter arrangements based on user role
+        if not request.user.is_staff and request.user.department:
+            # Non-admin users see only arrangements for their department's classes
+            arrangements = arrangements.filter(
+                cls__department=request.user.department
+            )
 
         # Get detailed seat arrangement for the specific hall
         hall_details = arrangements.select_related(

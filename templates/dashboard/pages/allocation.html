@@ -52,38 +52,100 @@
   </nav>
 </div>
 
-<div class="d-flex justify-content-between align-items-center">
-  <form hx-post="{% url 'generate_allocation' %}" style="flex: 1;" hx-indicator="#htmx-indicator-full" hx-target="#main-content" hx-push-url="true" class="gap-3 d-flex align-items-center">
-    <div class="w-25 form-group">
-      <label for="date" class="form-label">Select Day</label>
-      <select class="form-control-sm form-control bg-white" name="date" id="date">
-        {% for d in dates %}
-          {% if d == date %}
-            <option value="{{ d|date:'Y-m-d' }}" selected>{{ d|date:'Y-m-d' }}</option>
-          {% else %}
-            <option value="{{ d|date:'Y-m-d' }}">{{ d|date:'Y-m-d' }}</option>
-          {% endif %}
-        {% endfor %}
-      </select>
-    </div>
-    <div class="w-25 form-group">
-      <label for="period" class="form-label">Select Period</label>
-      <select class="form-control-sm form-control bg-white py-2" name="period" id="period">
-        {% if period == 'AM' %}
-          <option value="AM" selected>AM</option>
-        {% else %}
-          <option value="AM">AM</option>
-        {% endif %}
+<style>
+  .validation-container {
+    min-height: 200px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .validation-container .alert {
+    margin-bottom: 1rem;
+  }
+  .validation-container table {
+    font-size: 0.875rem;
+  }
+  .auth-form-light {
+    background: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    padding: 2rem;
+  }
+  .card {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+  }
+  .display-4 {
+    font-size: 2.5rem;
+    font-weight: 300;
+    line-height: 1.2;
+  }
+  @media (max-width: 991px) {
+    .form-section, .error-section {
+      margin-bottom: 2rem;
+    }
+  }
+</style>
 
-        {% if period == 'PM' %}
-          <option value="PM" selected>PM</option>
-        {% else %}
-          <option value="PM">PM</option>
-        {% endif %}
-      </select>
+<div class="row">
+  <!-- Form Section -->
+  <div class="col-lg-5 form-section">
+    <div class="auth-form-light">
+      <h4 class="text-center mb-4">Generate Seat Allocation</h4>
+      <p class="text-muted text-center mb-4">Select the date and period to generate or view the seat allocation for examination halls.</p>
+      
+      <form hx-post="{% url 'generate_allocation' %}" hx-indicator="#htmx-indicator-full" hx-target="#error-display" hx-push-url="true">
+        <div class="form-group mb-3">
+          <label for="date" class="form-label">Select Day</label>
+          <select class="form-control bg-white" name="date" id="date" required>
+            {% for d in dates %}
+              {% if d == date %}
+                <option value="{{ d|date:'Y-m-d' }}" selected>{{ d|date:'Y-m-d' }}</option>
+              {% else %}
+                <option value="{{ d|date:'Y-m-d' }}">{{ d|date:'Y-m-d' }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="form-group mb-4">
+          <label for="period" class="form-label">Select Period</label>
+          <select class="form-control bg-white" name="period" id="period" required>
+            {% if period == 'AM' %}
+              <option value="AM" selected>AM</option>
+            {% else %}
+              <option value="AM">AM</option>
+            {% endif %}
+            {% if period == 'PM' %}
+              <option value="PM" selected>PM</option>
+            {% else %}
+              <option value="PM">PM</option>
+            {% endif %}
+          </select>
+        </div>
+        
+        <button type="submit" class="btn bg-gradient-primary text-white w-100">
+          <i class="mdi mdi-chair-school me-2"></i>Generate or View Allocation
+        </button>
+      </form>
     </div>
-    <button type="submit" class="btn bg-gradient-primary text-white">Generate or View</button>
-  </form>
+  </div>
+  
+  <!-- Error Display Section -->
+  <div class="col-lg-7 error-section">
+    <div class="card validation-container">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">
+          <i class="mdi mdi-alert-circle-outline me-2"></i>Validation Results
+        </h5>
+      </div>
+      <div class="card-body" id="error-display">
+        <div class="text-center text-muted py-5">
+          <i class="mdi mdi-information-outline display-4 mb-3"></i>
+          <p>Validation messages will appear here after form submission.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% if generated %}

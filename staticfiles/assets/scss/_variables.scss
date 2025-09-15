@@ -57,7 +57,7 @@ $colors: (
   $black: #000000;
 
 $theme-colors: (
-  primary: #b66dff,
+  primary: #46c35f,
   secondary: #c3bdbd,
   success: #1bcfb4,
   info: #198ae3,
@@ -67,7 +67,7 @@ $theme-colors: (
   dark: #3e4b5b
   );
 
-  $primary: #b66dff;
+  $primary: #46c35f;
   $secondary: #c3bdbd;
   $success: #1bcfb4;
   $info: #198ae3;
@@ -76,7 +76,7 @@ $theme-colors: (
   $light: #f8f9fa;
   $dark: #3e4b5b;
 
-$theme-gradient-colors: (primary: linear-gradient(to right, #da8cff, #9a55ff),
+$theme-gradient-colors: (primary: linear-gradient(to right, #6dd17a, #2ea043),
 secondary: linear-gradient(to right, #e7ebf0, #868e96),
 success: linear-gradient(to right, #84d9d2, #07cdae),
 info: linear-gradient(to right, #90caf9, #047edf 99%),
