@@ -951,15 +951,19 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
     classes_without_courses = Class.objects.filter(
         courses__isnull=True).select_related('department')
     if classes_without_courses.exists():
-        class_dept_names = [
-            f"{cls.department.name} - {cls.name}"
+        table_data = [
+            [cls.department.name, cls.name]
             for cls in classes_without_courses
         ]
         return render(
             request,
-            template_name="dashboard/partials/alert-error.html",
+            template_name="dashboard/partials/alert-error-table.html",
             context={
-                "message": f"Cannot generate timetable. The following classes have no courses assigned: {', '.join(class_dept_names)}. Please upload courses for these classes first."},
+                "title": "Cannot Generate Timetable",
+                "description": "The following classes have no courses assigned. Please upload courses for these classes first.",
+                "table_headers": ["Department", "Class"],
+                "table_data": table_data,
+            },
         )
 
     startDate = datetime.strptime(startDate, "%Y-%m-%d").date()

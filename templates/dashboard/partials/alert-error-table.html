@@ -1,0 +1,29 @@
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+  <h6 class="alert-heading">{{ title }}</h6>
+  <p>{{ description }}</p>
+  
+  {% if table_data %}
+  <div class="table-responsive mt-3">
+    <table class="table table-sm table-striped">
+      <thead>
+        <tr>
+          {% for header in table_headers %}
+          <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in table_data %}
+        <tr>
+          {% for cell in row %}
+          <td>{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
