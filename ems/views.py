@@ -195,7 +195,7 @@ def manual_seat_assignment(request):
 
         if existing_assignment:
             messages.error(
-                request, f"Seat {seat_number} is already occupied by {existing_assignment.student.name}.")
+                request, f"Seat {seat_number} is already occupied by {existing_assignment.student.first_name} {existing_assignment.student.last_name}.")
             return redirect(f"/hall-allocation/?date={date}&period={period}&hall_id={hall_id}")
 
         # Get hall to validate seat number
@@ -214,7 +214,7 @@ def manual_seat_assignment(request):
         unplaced_student.save()
 
         messages.success(request,
-                         f"Successfully assigned {unplaced_student.student.name} to seat {seat_number}.")
+                         f"Successfully assigned {unplaced_student.student.first_name} {unplaced_student.student.last_name} to seat {seat_number}.")
 
     except SeatArrangement.DoesNotExist:
         messages.error(request, "Student not found or already placed.")

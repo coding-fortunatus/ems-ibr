@@ -110,7 +110,7 @@
                     {% for seat in row %}
                       <div class="seat m-1 p-2 border rounded text-center" 
                            style="width: 40px; height: 40px; font-size: 10px; {% if not seat.is_occupied %}background-color: white; color: #333;{% endif %}" 
-                           title="{% if seat.is_occupied %}Seat {{ seat.seat_number }}: {{ seat.student.name }} ({{ seat.course.code }}){% else %}Seat {{ seat.seat_number }}: Empty{% endif %}">
+                           title="{% if seat.is_occupied %}Seat {{ seat.seat_number }}: {{ seat.student.first_name }} {{ seat.student.last_name }} ({{ seat.course.code }}){% else %}Seat {{ seat.seat_number }}: Empty{% endif %}">
                         {{ seat.seat_number }}
                       </div>
                     {% endfor %}
@@ -187,7 +187,7 @@
                  <div class="student-info mb-2">
                    <div class="d-flex justify-content-between align-items-start">
                      <div>
-                       <strong class="text-dark">{{ student.student.name }}</strong><br>
+                       <strong class="text-dark">{{ student.student.first_name }} {{ student.student.last_name }}</strong><br>
                        <small class="text-muted">{{ student.student.matric_no }}</small><br>
                        <span class="badge bg-info">{{ student.course.code }}</span>
                      </div>
