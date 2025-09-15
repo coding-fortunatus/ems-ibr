@@ -96,8 +96,10 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def dashboard(request):
-    settings, created = SystemSettings.objects.get_or_create(
-        id=1, defaults={'session': '2024/2025', 'semester': '1st Semester'})
+    settings = SystemSettings.objects.first()
+    if not settings:
+        SystemSettings.objects.create(
+            session='2024/2025', semester='1st Semester')
     departments = Department.objects.all().count()
     halls = Hall.objects.all().count()
     courses = Course.objects.all().count()
@@ -120,8 +122,10 @@ def dashboard(request):
 @login_required(login_url="login")
 @admin_required
 def setting(request):
-    settings, created = SystemSettings.objects.get_or_create(
-        id=1, defaults={'session': '2024/2025', 'semester': '1st Semester'})
+    settings = SystemSettings.objects.first()
+    if not settings:
+        settings = SystemSettings.objects.create(
+            session='2024/2025', semester='1st Semester')
     context = {"settings": settings}
     if request.htmx:
         template_name = "dashboard/pages/settings.html"
