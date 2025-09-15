@@ -96,6 +96,12 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def dashboard(request):
+    settings = SystemSettings.objects.get(id=1)
+    if not settings:
+        settings = SystemSettings.objects.create(
+            session='2024/2025',
+            semester='1st Semester'
+        )
     departments = Department.objects.all().count()
     halls = Hall.objects.all().count()
     courses = Course.objects.all().count()
@@ -119,6 +125,11 @@ def dashboard(request):
 @admin_required
 def setting(request):
     settings = SystemSettings.objects.get(id=1)
+    if not settings:
+        settings = SystemSettings.objects.create(
+            session='2024/2025',
+            semester='1st Semester'
+        )
     context = {"settings": settings}
     if request.htmx:
         template_name = "dashboard/pages/settings.html"
@@ -941,10 +952,11 @@ def generate_timetable(request: HttpRequest) -> HttpResponse:
         )
 
     # Validation 4: Check if all classes have at least one course assigned
-    classes_without_courses = Class.objects.filter(courses__isnull=True).select_related('department')
+    classes_without_courses = Class.objects.filter(
+        courses__isnull=True).select_related('department')
     if classes_without_courses.exists():
         class_dept_names = [
-            f"{cls.department.name} - {cls.name}" 
+            f"{cls.department.name} - {cls.name}"
             for cls in classes_without_courses
         ]
         return render(
