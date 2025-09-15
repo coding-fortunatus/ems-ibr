@@ -637,6 +637,12 @@ def generate_attendance_sheets(request):
         messages.error(request, "Invalid date format.")
         return redirect("allocation")
 
+    # Get system settings for session and semester
+    settings_obj = SystemSettings.objects.first()
+    if not settings_obj:
+        settings_obj = SystemSettings.objects.create(
+            session='2024/2025', semester='1st Semester')
+
     # Get arrangements for the specific hall, date, and period
     arrangements = SeatArrangement.objects.filter(
         date=date, period=period, hall_id=hall_id
@@ -697,6 +703,20 @@ def generate_attendance_sheets(request):
                 # Fallback if logo file doesn't exist
                 logo_run = logo_paragraph.add_run("[SCHOOL LOGO]")
                 logo_run.bold = True
+
+            # Add session and semester information
+            session_paragraph = doc.add_paragraph()
+            session_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            session_run = session_paragraph.add_run(
+                f"SESSION: {settings_obj.session}")
+            session_run.bold = True
+            session_run.add_break()
+            semester_run = session_paragraph.add_run(
+                f"SEMESTER: {settings_obj.semester}")
+            semester_run.bold = True
+
+            # Add spacing
+            doc.add_paragraph()
 
             # Add course information header
             course_header = doc.add_paragraph()

@@ -144,10 +144,6 @@ if not DEBUG:
     # Enable the WhiteNoise storage backend, which compresses static files to reduce disk use
     # and renames the files with unique names for each version to support long-term caching
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-    
-    # WhiteNoise configuration for better handling of source maps and missing files
-    WHITENOISE_MANIFEST_STRICT = False  # Don't fail on missing source map files
-    WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br', 'map']
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -156,67 +152,3 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Production Security Settings
-if not DEBUG:
-    # Security settings for production
-    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
-    CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
-    SECURE_BROWSER_XSS_FILTER = env.bool("SECURE_BROWSER_XSS_FILTER", default=True)
-    SECURE_CONTENT_TYPE_NOSNIFF = env.bool("SECURE_CONTENT_TYPE_NOSNIFF", default=True)
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
-  
-
-
-# Logging Configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': env("LOG_LEVEL", default="INFO"),
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'] if not DEBUG else ['console'],
-            'level': env("LOG_LEVEL", default="INFO"),
-            'propagate': False,
-        },
-        'ems': {
-            'handlers': ['console', 'file'] if not DEBUG else ['console'],
-            'level': env("LOG_LEVEL", default="INFO"),
-            'propagate': False,
-        },
-    },
-}
-
-# Create logs directory if it doesn't exist
-if not DEBUG:
-    logs_dir = BASE_DIR / 'logs'
-    logs_dir.mkdir(exist_ok=True)
