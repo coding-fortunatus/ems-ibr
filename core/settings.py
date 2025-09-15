@@ -144,6 +144,10 @@ if not DEBUG:
     # Enable the WhiteNoise storage backend, which compresses static files to reduce disk use
     # and renames the files with unique names for each version to support long-term caching
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    
+    # WhiteNoise configuration for better handling of source maps and missing files
+    WHITENOISE_MANIFEST_STRICT = False  # Don't fail on missing source map files
+    WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br', 'map']
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
