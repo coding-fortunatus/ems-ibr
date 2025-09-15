@@ -1,3 +1,55 @@
+<style>
+.validation-container {
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.validation-container .alert {
+  margin-bottom: 0;
+  border-radius: 8px;
+}
+
+.validation-container .table {
+  margin-bottom: 0;
+}
+
+.validation-container .table th {
+  background-color: #f8f9fa;
+  border-top: none;
+  font-weight: 600;
+  color: #495057;
+}
+
+.validation-container .table td {
+  vertical-align: middle;
+}
+
+.auth-form-light {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.card {
+  border: none;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+.display-4 {
+  font-size: 3rem;
+  opacity: 0.3;
+}
+
+@media (max-width: 991px) {
+  .validation-container {
+    min-height: 200px;
+    margin-top: 20px;
+  }
+}
+</style>
+
 <div class="page-header">
   <h3 class="page-title">
     <span class="page-title-icon bg-gradient-primary text-white me-2"><i class="mdi mdi-account-multiple"></i></span>
@@ -79,25 +131,48 @@
     </div>
   {% else %}
     <div class="row flex-grow">
-      <div class="col-lg-4 mx-auto">
-        <div class="auth-form-light text-center p-5">
+      <!-- Form Section - Left Side -->
+      <div class="col-lg-5">
+        <div class="auth-form-light text-left p-4">
           <div class="brand-logo"></div>
-          <h4>Generate timetable</h4>
-          <div id="alert"></div>
+          <h4>Generate Timetable</h4>
+          <p class="text-muted mb-4">Select the date range for examination timetable generation</p>
 
-          <form class="pt-3" method="post" hx-post="{% url 'generate_timetable' %}" hx-indicator="#htmx-indicator" hx-target="#alert" hx-swap="outerHTML">
+          <form class="pt-3" method="post" hx-post="{% url 'generate_timetable' %}" hx-indicator="#htmx-indicator" hx-target="#error-display" hx-swap="innerHTML">
             <div class="form-group">
-              <label for="startDate">Start Date</label>
-              <input type="date" name="startDate" class="form-control form-control-lg" id="startDate" />
+              <label for="startDate" class="form-label">Start Date</label>
+              <input type="date" name="startDate" class="form-control form-control-lg" id="startDate" required />
             </div>
             <div class="form-group">
-              <label for="endDate">End Date</label>
-              <input type="date" name="endDate" class="form-control form-control-lg" id="endDate" />
+              <label for="endDate" class="form-label">End Date</label>
+              <input type="date" name="endDate" class="form-control form-control-lg" id="endDate" required />
             </div>
-            <div class="mt-3">
-              <button type="submit" class="btn btn-block btn-gradient-primary btn-lg font-weight-medium auth-form-btn d-flex gap-3 align-items-center">{% include 'dashboard/partials/loader.html' %}Generate</button>
+            <div class="mt-4">
+              <button type="submit" class="btn btn-block btn-gradient-primary btn-lg font-weight-medium auth-form-btn d-flex gap-3 align-items-center justify-content-center">
+                {% include 'dashboard/partials/loader.html' %}
+                Generate Timetable
+              </button>
             </div>
           </form>
+        </div>
+      </div>
+      
+      <!-- Error Display Section - Right Side -->
+      <div class="col-lg-7">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title text-muted mb-3">
+              <i class="mdi mdi-information-outline me-2"></i>
+              Validation Results
+            </h5>
+            <div id="error-display" class="validation-container">
+              <div class="text-center text-muted py-5">
+                <i class="mdi mdi-clock-outline display-4 mb-3"></i>
+                <p class="mb-0">Validation results will appear here after form submission</p>
+                <small class="text-muted">Please fill in the form and click Generate to see any validation errors or success messages</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
