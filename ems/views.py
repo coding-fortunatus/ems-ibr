@@ -956,6 +956,8 @@ def reset_system(request: HttpRequest) -> HttpResponse:
     Hall.objects.all().delete()
     Course.objects.all().delete()
     Class.objects.all().delete()
+    setting = SystemSettings.objects.first()
+    setting.has_timetable = False
 
     return redirect("dashboard")
 
